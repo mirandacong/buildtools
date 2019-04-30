@@ -4,18 +4,17 @@ def buildifier_dependencies():
     _maybe(
         http_archive,
         name = "bazel_skylib",
-        sha256 = "3b61715da37bc552cba875351e0c79ae150450d4cf3844b54b8c03cd2d0f481b",
-        strip_prefix = "bazel-skylib-d7c5518fa061ae18a20d00b14082705d3d2d885d",
-        url = "https://github.com/bazelbuild/bazel-skylib/archive/d7c5518fa061ae18a20d00b14082705d3d2d885d.tar.gz",  # 2018-11-21
+        sha256 = "7363ae6721c1648017e23a200013510c9e71ca69f398d52886ee6af7f26af436",
+        strip_prefix = "bazel-skylib-c00ef493869e2966d47508e8625aae723a4a3054",
+        url = "https://github.com/bazelbuild/bazel-skylib/archive/c00ef493869e2966d47508e8625aae723a4a3054.tar.gz",  # 2018-12-06
     )
     _maybe(
         http_archive,
         name = "io_bazel",
-        sha256 = "f59608e56b0b68fe9b18661ae3d10f6a61aaa5f70ed11f2db52e7bc6db516454",
-        strip_prefix = "bazel-0.20.0",
+        sha256 = "6ccb831e683179e0cfb351cb11ea297b4db48f9eab987601c038aa0f83037db4",
         urls = [
-            "http://mirror.bazel.build/github.com/bazelbuild/bazel/archive/0.20.0.tar.gz",
-            "https://github.com/bazelbuild/bazel/archive/0.20.0.tar.gz",
+            "https://releases.bazel.build/0.21.0/release/bazel-0.21.0-dist.zip",
+            "https://github.com/bazelbuild/bazel/releases/download/0.21.0/bazel-0.21.0-dist.zip",
         ],
     )
 

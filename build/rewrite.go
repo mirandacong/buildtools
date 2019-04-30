@@ -19,6 +19,7 @@ package build
 
 import (
 	"path"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -62,7 +63,7 @@ func Rewrite(f *File, info *RewriteInfo) {
 
 	for _, r := range rewrites {
 		if !disabled(r.name) {
-			if f.Type & r.scope != 0 {
+			if f.Type&r.scope != 0 {
 				r.fn(f, info)
 			}
 		}
@@ -78,6 +79,7 @@ type RewriteInfo struct {
 	UnsafeSort       int      // number of unsafe string lists sorted
 	SortLoad         int      // number of load argument lists sorted
 	FormatDocstrings int      // number of reindented docstrings
+	ReorderArguments int      // number of reordered function call arguments
 	Log              []string // log entries - may change
 }
 
@@ -104,6 +106,9 @@ func (info *RewriteInfo) String() string {
 	if info.FormatDocstrings > 0 {
 		s += " formatdocstrings"
 	}
+	if info.ReorderArguments > 0 {
+		s += " reorderarguments"
+	}
 	if s != "" {
 		s = s[1:]
 	}
@@ -114,8 +119,8 @@ func (info *RewriteInfo) String() string {
 // or all files.
 const (
 	scopeDefault = TypeDefault
-	scopeBuild = TypeBuild | TypeWorkspace // BUILD and WORKSPACE files
-	scopeBoth = scopeDefault | scopeBuild
+	scopeBuild   = TypeBuild | TypeWorkspace // BUILD and WORKSPACE files
+	scopeBoth    = scopeDefault | scopeBuild
 )
 
 // rewrites is the list of all Buildifier rewrites, in the order in which they are applied.
@@ -132,6 +137,7 @@ var rewrites = []struct {
 	{"multiplus", fixMultilinePlus, scopeBuild},
 	{"loadsort", sortLoadArgs, scopeBoth},
 	{"formatdocstrings", formatDocstrings, scopeBoth},
+	{"reorderarguments", reorderArguments, scopeBoth},
 }
 
 // DisableLoadSortForBuildFiles disables the loadsort transformation for BUILD files.
@@ -245,14 +251,19 @@ func fixLabels(f *File, info *RewriteInfo) {
 		editPerformed := false
 
 		if tables.StripLabelLeadingSlashes && strings.HasPrefix(str.Value, "//") {
-			if path.Dir(f.Path) == "." || !strings.HasPrefix(str.Value, "//:") {
+			if filepath.Dir(f.Path) == "." || !strings.HasPrefix(str.Value, "//:") {
 				editPerformed = true
 				str.Value = str.Value[2:]
 			}
 		}
 
 		if tables.ShortenAbsoluteLabelsToRelative {
-			thisPackage := labelPrefix + path.Dir(f.Path)
+			thisPackage := labelPrefix + filepath.Dir(f.Path)
+			// filepath.Dir on Windows uses backslashes as separators, while labels always have slashes.
+			if filepath.Separator != '/' {
+				thisPackage = strings.Replace(thisPackage, string(filepath.Separator), "/", -1)
+			}
+
 			if str.Value == thisPackage {
 				editPerformed = true
 				str.Value = ":" + path.Base(str.Value)
@@ -950,4 +961,41 @@ func formatString(value string, oldIndentation, newIndentation int) string {
 		lines[i] = line
 	}
 	return strings.Join(lines, "\n")
+}
+
+// argumentType returns an integer by which funcall arguments can be sorted:
+// 1 for positional, 2 for named, 3 for *args, 4 for **kwargs
+func argumentType(expr Expr) int {
+	switch expr := expr.(type) {
+	case *UnaryExpr:
+		switch expr.Op {
+		case "**":
+			return 4
+		case "*":
+			return 3
+		}
+	case *BinaryExpr:
+		if expr.Op == "=" {
+			return 2
+		}
+	}
+	return 1
+}
+
+// reorderArguments fixes the order of arguments of a function call
+// (positional, named, *args, **kwargs)
+func reorderArguments(f *File, info *RewriteInfo) {
+	Walk(f, func(expr Expr, stack []Expr) {
+		call, ok := expr.(*CallExpr)
+		if !ok {
+			return
+		}
+		compare := func(i, j int) bool {
+			return argumentType(call.List[i]) < argumentType(call.List[j])
+		}
+		if !sort.SliceIsSorted(call.List, compare) {
+			sort.SliceStable(call.List, compare)
+			info.ReorderArguments++
+		}
+	})
 }

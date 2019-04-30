@@ -87,6 +87,14 @@ type File struct {
 	Stmt []Expr
 }
 
+// DisplayPath returns the filename if it's not empty, "<stdin>" otherwise
+func (f *File) DisplayPath() string {
+	if f.Path == "" {
+		return "<stdin>"
+	}
+	return f.Path
+}
+
 func (f *File) Span() (start, end Position) {
 	if len(f.Stmt) == 0 {
 		return
@@ -116,6 +124,17 @@ type Ident struct {
 
 func (x *Ident) Span() (start, end Position) {
 	return x.NamePos, x.NamePos.add(x.Name)
+}
+
+// BranchStmt represents a `pass` statement.
+type BranchStmt struct {
+	Comments
+	Token    string // pass, break, continue
+	TokenPos Position
+}
+
+func (x *BranchStmt) Span() (start, end Position) {
+	return x.TokenPos, x.TokenPos.add(x.Token)
 }
 
 func (x *Ident) asString() *StringExpr {

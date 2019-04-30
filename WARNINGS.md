@@ -1,12 +1,13 @@
 # Buildifier warnings
 
+Warning categories supported by buildifier's linter:
 
-  * [args-order](#args-order)
   * [attr-cfg](#attr-cfg)
   * [attr-license](#attr-license)
   * [attr-non-empty](#attr-non-empty)
   * [attr-output-default](#attr-output-default)
   * [attr-single-file](#attr-single-file)
+  * [confusing-name](#confusing-name)
   * [constant-glob](#constant-glob)
   * [ctx-actions](#ctx-actions)
   * [ctx-args](#ctx-args)
@@ -15,11 +16,14 @@
   * [dict-concatenation](#dict-concatenation)
   * [duplicated-name](#duplicated-name)
   * [filetype](#filetype)
+  * [function-docstring](#function-docstring)
   * [git-repository](#git-repository)
   * [http-archive](#http-archive)
   * [integer-division](#integer-division)
   * [load](#load)
   * [load-on-top](#load-on-top)
+  * [module-docstring](#module-docstring)
+  * [name-conventions](#name-conventions)
   * [native-build](#native-build)
   * [native-package](#native-package)
   * [no-effect](#no-effect)
@@ -30,25 +34,14 @@
   * [positional-args](#positional-args)
   * [redefined-variable](#redefined-variable)
   * [repository-name](#repository-name)
+  * [return-value](#return-value)
+  * [rule-impl-return](#rule-impl-return)
   * [same-origin-load](#same-origin-load)
   * [string-iteration](#string-iteration)
+  * [uninitialized](#uninitialized)
+  * [unreachable](#unreachable)
   * [unsorted-dict-items](#unsorted-dict-items)
   * [unused-variable](#unused-variable)
-
---------------------------------------------------------------------------------
-
-## <a name="args-order"></a>Function call arguments should be in the following order
-
-  * Category_name: `args-order`
-  * Flag in Bazel: `--incompatible_strict_argument_ordering`
-  * Automatic fix: yes
-
-Function call arguments should be in the following order:
-
-  * Positional arguments
-  * Keyword arguments
-  * Optional `*arg`
-  * Optional `**kwarg`
 
 --------------------------------------------------------------------------------
 
@@ -59,7 +52,7 @@ Function call arguments should be in the following order:
   * Automatic fix: yes
 
 The [Configuration](https://docs.bazel.build/versions/master/skylark/rules.html#configurations)
-`cfg = "data" is deprecated and has no effect. Consider removing it.
+`cfg = "data"` is deprecated and has no effect. Consider removing it.
 
 --------------------------------------------------------------------------------
 
@@ -104,6 +97,15 @@ for these attributes instead.
 
 The `single_file` [attribute](https://docs.bazel.build/versions/master/skylark/lib/attr.html)
 is deprecated, please use `allow_single_file` instead.
+
+--------------------------------------------------------------------------------
+
+## <a name="confusing-name"></a>Never use `l`, `I`, or `O` as names
+
+  * Category_name: `confusing-name`
+  * Automatic fix: no
+
+The names `l`, `I`, or `O` can be easily confused with `I`, `l`, or `0` correspondingly.
 
 --------------------------------------------------------------------------------
 
@@ -232,7 +234,7 @@ you can use one of the following:
 
   * Use [Skylib](https://github.com/bazelbuild/bazel-skylib):
 
-    load("@bazel_skylib//lib/dicts.bzl", "dicts")
+    load("@bazel_skylib//lib:dicts.bzl", "dicts")
 
     d = dicts.add(d1, d2, d3)
 
@@ -288,6 +290,40 @@ the line or at the beginning of a rule.
 The function `FileType` is [deprecated](https://docs.bazel.build/versions/master/skylark/backward-compatibility.html#filetype-is-deprecated).
 Instead of using it as an argument to the [`rule` function](https://docs.bazel.build/versions/master/skylark/lib/globals.html#rule)
 just use a list of strings.
+
+--------------------------------------------------------------------------------
+
+## <a name="function-docstring"></a>Function docstring
+
+  * Category_name: `function-docstring`
+  * Automatic fix: no
+
+Public functions should have docstrings describing functions and their signatures.
+A docstring is a string statement which should be the first statement of the file
+(it may follow comment lines). Docstrings are expected to be formatted in the
+following way:
+
+    """One-line summary: must be followed and may be preceded by a blank line.
+    
+    Optional additional description like this.
+    
+    If it's a function docstring and the function has more than one argument, the docstring has
+    to document these parameters as follows:
+
+    Args:
+      parameter1: description of the first parameter. Each parameter line
+        should be indented by one, preferably two, spaces (as here).
+      parameter2: description of the second
+        parameter that spans two lines. Each additional line should have a
+        hanging indentation of at least one, preferably two, additional spaces (as here).
+      another_parameter (unused, mutable): a parameter may be followed
+        by additional attributes in parentheses
+
+    Returns:
+      Description of the return value.
+      Should be indented by at least one, preferably two spaces (as here)
+      Can span multiple lines.
+    """
 
 --------------------------------------------------------------------------------
 
@@ -373,6 +409,26 @@ or at the beginning of a rule.
 
 Load statements should be first statements (with the exception of `WORKSPACE` files),
 they can follow only comments and docstrings.
+
+--------------------------------------------------------------------------------
+
+## <a name="module-docstring"></a>The file has no module docstring.
+
+  * Category_name: `module-docstring`
+  * Automatic fix: no
+
+`.bzl` files should have docstrings on top of them. A docstring is a string statement
+which should be the first statement of the file (it may follow comment lines). 
+
+--------------------------------------------------------------------------------
+
+## <a name="name-conventions"></a>Name conventions
+
+  * Category_name: `name-conventions`
+  * Automatic fix: yes
+
+By convention, all variables should be lower_snake_case, constant should be
+UPPER_SNAKE_CASE, and providers should be UpperCamelCase ending with `Info`.
 
 --------------------------------------------------------------------------------
 
@@ -572,6 +628,32 @@ instead.
 
 --------------------------------------------------------------------------------
 
+## <a name="return-value"></a>Some but not all execution paths of a function return a value
+
+  * Category_name: `return-value`
+  * Automatic fix: no
+
+Some but not all execution paths of a function return a value. Either there's
+an explicit empty `return` statement, or an implcit return in the end of a
+function. If it is intentional, make it explicit using `return None`. If you
+know certain parts of the code cannot be reached, add the statement
+`fail("unreachable")` to them.
+
+--------------------------------------------------------------------------------
+
+## <a name="rule-impl-return"></a>Avoid using the legacy provider syntax
+
+  * Category_name: `rule-impl-return`
+  * Automatic fix: no
+
+Returning structs from rule implementation functions is
+<a href="https://docs.bazel.build/versions/master/skylark/rules.html#migrating-from-legacy-providers">deprecated</a>,
+consider using
+<a href="https://docs.bazel.build/versions/master/skylark/rules.html#providers">providers</a>
+or lists of providers instead.
+
+--------------------------------------------------------------------------------
+
 ## <a name="same-origin-load"></a>Same label is used for multiple loads
 
   * Category_name: `same-origin-load`
@@ -614,6 +696,27 @@ Use string indexing and `len` instead:
     for i in range(len(my_string)):
         char = my_string[i]
         # do something with char
+
+--------------------------------------------------------------------------------
+
+## <a name="uninitialized"></a>Variable may not have been initialized
+
+  * Category_name: `uninitialized`
+  * Automatic fix: no
+
+The local value can be not initialized at the time of execution. It may happen if it's
+initialized in one of the if-else clauses but not in all of them, or in a for-loop which
+can potentially be empty.
+
+--------------------------------------------------------------------------------
+
+## <a name="unreachable"></a>The statement is unreachable
+
+  * Category_name: `unreachable`
+  * Automatic fix: no
+
+The statement is unreachable because it follows a `return`, `break`, `continue`,
+or `fail()` statement.
 
 --------------------------------------------------------------------------------
 

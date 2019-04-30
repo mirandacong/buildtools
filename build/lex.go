@@ -42,11 +42,15 @@ const (
 )
 
 func (t FileType) String() string {
-	return [...]string{
-		".bzl",
-		"BUILD",
-		"WORKSPACE",
-	}[t]
+	switch t {
+	case TypeDefault:
+		return ".bzl"
+	case TypeBuild:
+		return "BUILD"
+	case TypeWorkspace:
+		return "WORKSPACE"
+	}
+	return "unknown"
 }
 
 // ParseBuild parses a file, marks it as a BUILD file and returns the corresponding parse tree.
@@ -85,11 +89,11 @@ func ParseDefault(filename string, data []byte) (*File, error) {
 	return f, err
 }
 
-func getFileType(basename string) FileType {
-	basename = strings.ToLower(basename)
-	if basename == "stdin" {
+func getFileType(filename string) FileType {
+	if filename == "" { // stdin
 		return TypeBuild // For compatibility
 	}
+	basename := strings.ToLower(filepath.Base(filename))
 	ext := filepath.Ext(basename)
 	if ext == ".bzl" || ext == ".sky" {
 		return TypeDefault
@@ -109,8 +113,7 @@ func getFileType(basename string) FileType {
 // Uses the filename to detect the formatting type (build, workspace, or default) and calls
 // ParseBuild, ParseWorkspace, or ParseDefault correspondingly.
 func Parse(filename string, data []byte) (*File, error) {
-	basename := filepath.Base(filename)
-	switch getFileType(basename) {
+	switch getFileType(filename) {
 	case TypeBuild:
 		return ParseBuild(filename, data)
 	case TypeWorkspace:
@@ -128,7 +131,11 @@ type ParseError struct {
 
 // Error returns a string representation of the parse error.
 func (e ParseError) Error() string {
-	return fmt.Sprintf("%s:%d:%d: %v", e.Filename, e.Pos.Line, e.Pos.LineRune, e.Message)
+	filename := e.Filename
+	if filename == "" {
+		filename = "<stdin>"
+	}
+	return fmt.Sprintf("%s:%d:%d: %v", filename, e.Pos.Line, e.Pos.LineRune, e.Message)
 }
 
 // An input represents a single input file being parsed.
@@ -553,6 +560,14 @@ func (in *input) Lex(val *yySymType) int {
 	if k := keywordToken[val.tok]; k != 0 {
 		return k
 	}
+	switch val.tok {
+	case "pass":
+		return _PASS
+	case "break":
+		return _BREAK
+	case "continue":
+		return _CONTINUE
+	}
 	for _, c := range val.tok {
 		if c > '9' || c < '0' {
 			return _IDENT
@@ -634,6 +649,8 @@ func (in *input) order(v Expr) {
 	case *StringExpr:
 		// nothing
 	case *Ident:
+		// nothing
+	case *BranchStmt:
 		// nothing
 	case *DotExpr:
 		in.order(v.X)

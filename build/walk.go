@@ -145,6 +145,18 @@ func WalkOnce(v Expr, f func(x *Expr)) {
 		f(&v.Then)
 		f(&v.Test)
 		f(&v.Else)
+	case *LoadStmt:
+		module := (Expr)(v.Module)
+		f(&module)
+		v.Module = module.(*StringExpr)
+		for i := range v.From {
+			from := (Expr)(v.From[i])
+			f(&from)
+			v.From[i] = from.(*Ident)
+			to := (Expr)(v.To[i])
+			f(&to)
+			v.To[i] = to.(*Ident)
+		}
 	case *DefStmt:
 		for i := range v.Params {
 			f(&v.Params[i])
@@ -171,4 +183,48 @@ func WalkOnce(v Expr, f func(x *Expr)) {
 			f(&v.Result)
 		}
 	}
+}
+
+// walkStatements is a helper function for WalkStatements
+func walkStatements(v Expr, stack *[]Expr, f func(x Expr, stk []Expr)) {
+	if v == nil {
+		return
+	}
+
+	f(v, *stack)
+	*stack = append(*stack, v)
+
+	traverse := func(x Expr) {
+		walkStatements(x, stack, f)
+	}
+
+	switch expr := v.(type) {
+	case *File:
+		for _, s := range expr.Stmt {
+			traverse(s)
+		}
+	case *DefStmt:
+		for _, s := range expr.Body {
+			traverse(s)
+		}
+	case *IfStmt:
+		for _, s := range expr.True {
+			traverse(s)
+		}
+		for _, s := range expr.False {
+			traverse(s)
+		}
+	case *ForStmt:
+		for _, s := range expr.Body {
+			traverse(s)
+		}
+	}
+
+	*stack = (*stack)[:len(*stack)-1]
+}
+
+// WalkStatements traverses sub statements (not all nodes)
+func WalkStatements(v Expr, f func(x Expr, stk []Expr)) {
+	var stack []Expr
+	walkStatements(v, &stack, f)
 }
